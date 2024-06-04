@@ -70,6 +70,17 @@ commands:
         command: dune uninstall coq-quickchick
 
 jobs:
+  checks:
+    docker:
+      - image: cimg/python:3.12.3
+    steps:
+    - checkout
+    - run:
+        name: Install pre-commit hooks
+        command: pip install pre-commit
+    - run:
+        name: Ensure pre-commit checks pass
+        command: pre-commit run --all-files --show-diff-on-failure --color=always
   test:
     <<: *defaults
     steps:
@@ -90,6 +101,7 @@ workflows:
   version: 2
   build:
     jobs:
+      - checks
       - test:
           name: Coq 8.15
           coq: '8.15'
