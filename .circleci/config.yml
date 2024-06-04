@@ -71,16 +71,32 @@ commands:
 
 jobs:
   checks:
+    environment:
+      OPAMJOBS: 2
+      OPAMVERBOSE: 1
+      OPAMYES: true
+      PIP_BREAK_SYSTEM_PACKAGES: 1 # override that pip is externally managed
     docker:
-      - image: cimg/python:3.12.3
+      - image: ocaml/opam
     steps:
     - checkout
     - run:
+        name: Install ocamlformat
+        command: opam install ocamlformat
+    - run:
+        name: Install Python
+        command: sudo apt install python3 -y
+    - run:
+        name: Install Pip
+        command: sudo apt install python3-pip -y
+    - run:
         name: Install pre-commit hooks
-        command: pip install pre-commit
+        command: python3 -m pip install pre-commit
     - run:
         name: Ensure pre-commit checks pass
-        command: pre-commit run --all-files --show-diff-on-failure --color=always
+        command: |
+          eval $(opam env)
+          PATH=~/.local/bin:$PATH pre-commit run --all-files --show-diff-on-failure --color=always
   test:
     <<: *defaults
     steps:
