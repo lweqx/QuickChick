@@ -6,4 +6,6 @@
  (libraries unix str))
 
 (ocamllex quickChickToolLexer)
-(menhir (modules quickChickToolParser))
+
+(menhir
+ (modules quickChickToolParser))

@@ -1,3 +1,4 @@
 (alias
-  (name default)
-  (deps (package coq-quickchick)))
+ (name default)
+ (deps
+  (package coq-quickchick)))

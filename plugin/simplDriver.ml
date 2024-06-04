@@ -2,6 +2,7 @@
 open Util
 open Constrexpr
 open GenericLib
+
 (* open SizeUtils *)
 open Sized
 (*
@@ -13,56 +14,52 @@ open SizeCorr
 open EnumSized
 open ArbitrarySized
 
-type derivable =
-    Shrink
-  | Show
-  | GenSized
-  | Sized
-  | EnumSized
-  (*
+type derivable = Shrink | Show | GenSized | Sized | EnumSized
+(*
   | CanonicalSized
   | SizeMonotonic
   | SizedMonotonic
   | SizedCorrect
    *)
-  
+
 let derivable_to_string = function
   | Shrink -> "Shrink"
-  | Show   -> "Show"
+  | Show -> "Show"
   | GenSized -> "GenSized"
-  | EnumSized -> "EnumSized"              
+  | EnumSized -> "EnumSized"
   | Sized -> "Sized"
-           (*
+(*
   | CanonicalSized -> "CanonicalSized"
   | SizeMonotonic -> "SizeMonotonic"
   | SizedMonotonic -> "SizedMonotonic"
   | SizedCorrect ->  "SizedCorrect"
             *)
-           
-let mk_instance_name der tn = 
+
+let mk_instance_name der tn =
   let prefix = derivable_to_string der in
   let strip_last s = List.hd (List.rev (String.split_on_char '.' s)) in
   var_to_string (fresh_name (prefix ^ strip_last tn))
 
-let repeat_instance_name der tn = 
+let repeat_instance_name der tn =
   let prefix = derivable_to_string der in
   let strip_last s = List.hd (List.rev (String.split_on_char '.' s)) in
-  (prefix ^ strip_last tn)
+  prefix ^ strip_last tn
 
 (* Generic derivation function *)
-let derive (cn : derivable) (c : constr_expr) (instance_name : string) (name1 : string) (name2 : string) =
-
-  let (ty_ctr, ty_params, ctrs) =
+let derive (cn : derivable) (c : constr_expr) (instance_name : string)
+    (name1 : string) (name2 : string) =
+  let ty_ctr, ty_params, ctrs =
     match coerce_reference_to_dt_rep c with
     | Some dt -> dt
-    | None -> failwith "Not supported type"  in
+    | None -> failwith "Not supported type"
+  in
 
   let coqTyCtr = gTyCtr ty_ctr in
   let coqTyParams = List.map gTyParam ty_params in
 
   let full_dt = gApp ~explicit:true coqTyCtr coqTyParams in
 
-(*
+  (*
   let ind_name = match c with
     | { CAst.v = CRef (r, _); _ } ->
          string_of_qualid r
@@ -81,26 +78,28 @@ let derive (cn : derivable) (c : constr_expr) (instance_name : string) (name1 : 
     ; _isCurrentTyCtr = sameTypeCtr ty_ctr
     } in
    *)
-  let param_class_names = match cn with
-    | Sized -> ["Sized"]
-    | Shrink -> ["Shrink"]
-    | Show -> ["Show"]
-    | GenSized -> ["Gen"]
-    | EnumSized -> ["Enum"]                
-                (*
+  let param_class_names =
+    match cn with
+    | Sized -> [ "Sized" ]
+    | Shrink -> [ "Shrink" ]
+    | Show -> [ "Show" ]
+    | GenSized -> [ "Gen" ]
+    | EnumSized -> [ "Enum" ]
+    (*
     | CanonicalSized -> ["CanonicalSized"]
     | SizeMonotonic -> ["GenMonotonic"]
     | SizedMonotonic -> ["Gen"]
     | SizedCorrect ->  ["GenMonotonicCorrect"; "CanonicalSized"]*)
   in
 
-  let extra_arguments = match cn with
+  let extra_arguments =
+    match cn with
     | Show -> []
     | Shrink -> []
     | Sized -> []
     | GenSized -> []
-    | EnumSized -> []                
-                (*
+    | EnumSized -> []
+    (*
     | CanonicalSized -> []
     | SizeMonotonic -> [(gInject "s", gInject "nat")]
     | SizedMonotonic -> []
@@ -111,12 +110,23 @@ let derive (cn : derivable) (c : constr_expr) (instance_name : string) (name1 : 
   (* Generate typeclass constraints. For each type parameter "A" we need `{_ : <Class Name> A} *)
   let instance_arguments =
     let params =
-      (List.concat (List.map (fun tp ->
-                                ((gArg ~assumName:tp ~assumImplicit:true ()) ::
-                                (List.map (fun name -> gArg ~assumType:(gApp (gInject name) [tp]) ~assumGeneralized:true ()) param_class_names))
-                             ) coqTyParams))
+      List.concat
+        (List.map
+           (fun tp ->
+             gArg ~assumName:tp ~assumImplicit:true ()
+             :: List.map
+                  (fun name ->
+                    gArg
+                      ~assumType:(gApp (gInject name) [ tp ])
+                      ~assumGeneralized:true ())
+                  param_class_names)
+           coqTyParams)
     in
-    let args = (List.map (fun (name, typ) -> gArg ~assumName:name ~assumType:typ ()) extra_arguments) in
+    let args =
+      List.map
+        (fun (name, typ) -> gArg ~assumName:name ~assumType:typ ())
+        extra_arguments
+    in
     (* Add extra instance arguments *)
     params @ args
   in
@@ -133,18 +143,19 @@ let derive (cn : derivable) (c : constr_expr) (instance_name : string) (name1 : 
     | SizedCorrect ->
       gApp ~explicit:true (gInject class_name)
         [full_dt; hole; gInject ("arbitrarySized")]
-    | _ -> *) gApp (gInject class_name) [full_dt]
+    | _ -> *)
+    gApp (gInject class_name) [ full_dt ]
   in
   (* Create the instance record. Only need to extend this for extra instances *)
   let instance_record iargs =
     (* Copying code for Arbitrary, Sized from derive.ml *)
     match cn with
-    | Show -> show_decl ty_ctr ctrs iargs 
+    | Show -> show_decl ty_ctr ctrs iargs
     | Shrink -> shrink_decl ty_ctr ctrs iargs
     | GenSized -> arbitrarySized_decl ty_ctr ctrs iargs
-    | EnumSized -> enumSized_decl ty_ctr ctrs iargs                
+    | EnumSized -> enumSized_decl ty_ctr ctrs iargs
     | Sized -> sized_decl ty_ctr ctrs
-             (*
+    (*
     | CanonicalSized ->
       let ind_scheme =  gInject ((ty_ctr_to_string ty_ctr) ^ "_ind") in
       sizeEqType ty_ctr ctrs ind_scheme iargs
@@ -163,5 +174,5 @@ let derive (cn : derivable) (c : constr_expr) (instance_name : string) (name1 : 
 
   (* msg_debug (str "Defined record" ++ fnl ()); *)
   (* debug_coq_expr (instance_record []); *)
-
-  declare_class_instance instance_arguments instance_name instance_type instance_record
+  declare_class_instance instance_arguments instance_name instance_type
+    instance_record

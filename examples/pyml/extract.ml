@@ -1,6 +1,6 @@
 open Py;;
 
-initialize ();;
+initialize ()
 
 let plus x y =
   let foo = import "foo" in

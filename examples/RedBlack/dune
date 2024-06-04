@@ -1,8 +1,4 @@
 (coq.theory
-  (name QuickChick.RedBlack)
-  (theories QuickChick)
-  (modules
-    redblack
-    testing
-    verif
-  ))
+ (name QuickChick.RedBlack)
+ (theories QuickChick)
+ (modules redblack testing verif))

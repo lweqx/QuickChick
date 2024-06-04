@@ -1,3 +1,4 @@
 (rule
  (target ./mycppo)
- (action (run ./mk-mycppo)))
+ (action
+  (run ./mk-mycppo)))
